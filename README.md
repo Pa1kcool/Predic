@@ -1,2 +1,2 @@
 # Predic
-Worldwide Earthquake Prediction and Forecasting
+Earthquake prediction and Forecasting 
