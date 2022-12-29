@@ -14,7 +14,55 @@ from Webapp import app
 # global variables
 earthquake_live = None
 days_out_to_predict = 7
+#new code
+import os
+from azure.storage.blob import BlobServiceClient, BlobClient
+from azure.storage.blob import ContentSettings, ContainerClient
+ 
+# IMPORTANT: Replace connection string with your storage account connection string
+# Usually starts with DefaultEndpointsProtocol=https;...
+MY_CONNECTION_STRING = "DefaultEndpointsProtocol=https;AccountName=prediceq6381872470;AccountKey=aR5es2XH6chzlSxMtgiLLThJToryvK+gkF7eYNfYAsFOik26z6GZ85gZ6Ye0x7XWNAEWtdQcNp5X+ASt4ppr1A==;EndpointSuffix=core.windows.net"
+ 
+# Replace with blob container
+MY_BLOB_CONTAINER = "azureml"
+ 
+# Replace with the local folder where you want files to be downloaded
+LOCAL_BLOB_PATH = "REPLACE_THIS"
+ 
+class AzureBlobFileDownloader:
+  def _init_(self):
+    print("Intializing AzureBlobFileDownloader")
+ 
+    # Initialize the connection to Azure storage account
+    self.blob_service_client =  BlobServiceClient.from_connection_string(MY_CONNECTION_STRING)
+    self.my_container = self.blob_service_client.get_container_client(MY_BLOB_CONTAINER)
+ 
+ 
+  def save_blob(self,file_name,file_content):
+    # Get full path to the file
+    download_file_path = os.path.join(LOCAL_BLOB_PATH, file_name)
+ 
+    # for nested blobs, create local path as well!
+    os.makedirs(os.path.dirname(download_file_path), exist_ok=True)
+ 
+    with open(download_file_path, "wb") as file:
+      file.write(file_content)
+ 
+  def download_all_blobs_in_container(self):
+    my_blobs = self.my_container.list_blobs()
+    for blob in my_blobs:
+      print(blob.name)
+      bytes = self.my_container.get_blob_client(blob).download_blob().readall()
+      self.save_blob(blob.name, bytes)
+ 
+# Initialize class and upload files
+azure_blob_file_downloader = AzureBlobFileDownloader()
+azure_blob_file_downloader.download_all_blobs_in_container()
 
+
+
+
+#new code
 
 from flask import Flask
 app=Flask(__name__)
@@ -97,44 +145,44 @@ def prepare_earthquake_data_and_model(days_out_to_predict = 7, eta=0.1):
              'Mmag_7',
              'mag_outcome']]
 
-    # keep only data where we can make predictions
-    df_features=eq_all
+   ## # keep only data where we can make predictions
+  # df_features=eq_all
     # splitting traing and testing dataset with trainging size = 70% and test = 30%
-    req=['depth','Mdep_21','Mdep_14','Mdep_7','Mmag_21','Mmag_14','Mmag_7']
-    from sklearn.model_selection import train_test_split
-    X_train, X_test, y_train, y_test = train_test_split(df_features[req], df_features['mag_outcome'], test_size=0.3, random_state=42)
-    from keras import optimizers
-    from keras.utils import plot_model
-    from keras.models import Sequential, Model
-    from keras.regularizers import L1L2
-    from keras.layers.convolutional import Conv1D, MaxPooling1D
-    from keras.layers import Dense, LSTM, RepeatVector, TimeDistributed, Flatten,BatchNormalization,Dropout
-    model_mlp = Sequential()
-    model_mlp.add(Dense(80, activation='relu', kernel_regularizer=L1L2(l1=1e-4, l2=1e-2), input_dim=X_train.shape[1]))
-    model_mlp.add(Dropout(0.2))
-    model_mlp.add(Dense(20, activation='relu', kernel_regularizer=L1L2(l1=1e-2, l2=1e-1)))
-    model_mlp.add(Dense(1, activation='sigmoid'))
-    model_mlp.compile(optimizer='adam',loss='binary_crossentropy',metrics=['AUC'])
+   # req=['depth','Mdep_21','Mdep_14','Mdep_7','Mmag_21','Mmag_14','Mmag_7']
+    #from sklearn.model_selection import train_test_split
+    #X_train, X_test, y_train, y_test = train_test_split(df_features[req], df_features['mag_outcome'], test_size=0.3, random_state=42)
+    #from keras import optimizers
+    #from keras.utils import plot_model
+    #from keras.models import Sequential, Model
+    #from keras.regularizers import L1L2
+    #from keras.layers.convolutional import Conv1D, MaxPooling1D
+    #from keras.layers import Dense, LSTM, RepeatVector, TimeDistributed, Flatten,BatchNormalization,Dropout
+    #model_mlp = Sequential()
+    #model_mlp.add(Dense(80, activation='relu', kernel_regularizer=L1L2(l1=1e-4, l2=1e-2), input_dim=X_train.shape[1]))
+    #model_mlp.add(Dropout(0.2))
+    #model_mlp.add(Dense(20, activation='relu', kernel_regularizer=L1L2(l1=1e-2, l2=1e-1)))
+    #model_mlp.add(Dense(1, activation='sigmoid'))
+    #model_mlp.compile(optimizer='adam',loss='binary_crossentropy',metrics=['AUC'])
     #model_mlp.summary()
-    mlp_history = model_mlp.fit(X_train.values, y_train, validation_data=(X_test.values, y_test), epochs=20, verbose=1)
+    #mlp_history = model_mlp.fit(X_train.values, y_train, validation_data=(X_test.values, y_test), epochs=20, verbose=1)
     #10 epochs is good
     #15 is questionable
-    model_mlp.evaluate(X_test, y_test)
+    #model_mlp.evaluate(X_test, y_test)
     #y_test.shape
 
-    from sklearn.metrics import explained_variance_score, mean_poisson_deviance, mean_gamma_deviance
-    from sklearn.metrics import r2_score
-    from sklearn.metrics import max_error
+    #from sklearn.metrics import explained_variance_score, mean_poisson_deviance, mean_gamma_deviance
+    #from sklearn.metrics import r2_score
+    #from sklearn.metrics import max_error
 
     # predict probabilities for test set
-    yhat_probs = model_mlp.predict(X_test, verbose=0)
+    #yhat_probs = model_mlp.predict(X_test, verbose=0)
     # reduce to 1d array
-    yhat_probs = yhat_probs[:, 0]
+    #yhat_probs = yhat_probs[:, 0]
 
-    var = explained_variance_score(y_test.values.reshape(-1,1), yhat_probs)
+    #var = explained_variance_score(y_test.values.reshape(-1,1), yhat_probs)
     #print('Variance: %f' % var)
 
-    r2 = r2_score(y_test.values.reshape(-1,1), yhat_probs)
+    #r2 = r2_score(y_test.values.reshape(-1,1), yhat_probs)
     #print('R2 Score: %f' % var)
 
     #plotting the training and validation loss
@@ -143,7 +191,7 @@ def prepare_earthquake_data_and_model(days_out_to_predict = 7, eta=0.1):
     #plt.xlabel("epoch")
     #plt.ylabel("Loss")
     #plt.legend()
-    
+    model_mlp=keras.models.load_model('my_model.h5')
     from sklearn import metrics
     predicted = model_mlp.predict(X_test)
     # Evaluating the model
@@ -245,6 +293,6 @@ def build_page():
                 current_value=0,
                 days_out_to_predict=days_out_to_predict)
 
-app.run(host="0.0.0.0", port=5011)
+app.run(host="0.0.0.0", port=5020)
 
 
